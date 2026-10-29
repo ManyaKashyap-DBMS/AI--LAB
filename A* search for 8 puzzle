@@ -1,0 +1,104 @@
+import heapq
+
+# The target solved state
+GOAL = (1, 2, 3, 4, 5, 6, 7, 8, 0)  # 0 represents the empty blank tile
+
+def get_misplaced_tiles(state):
+    """Heuristic function (h): Counts how many tiles are out of place (ignoring the blank)."""
+    return sum(1 for s, g in zip(state, GOAL) if s != g and s != 0)
+
+def get_neighbors(state):
+    """Finds all valid board states reachable by moving a tile into the blank space."""
+    neighbors = []
+    blank_idx = state.index(0)
+    row, col = divmod(blank_idx, 3)
+    
+    # Define possible moves for the blank space: Up, Down, Left, Right
+    moves = []
+    if row > 0: moves.append(-3) # Up
+    if row < 2: moves.append(3)  # Down
+    if col > 0: moves.append(-1) # Left
+    if col < 2: moves.append(1)  # Right
+    
+    for move in moves:
+        new_idx = blank_idx + move
+        # Swap the blank with the target tile
+        new_state = list(state)
+        new_state[blank_idx], new_state[new_idx] = new_state[new_idx], new_state[blank_idx]
+        neighbors.append(tuple(new_state))
+        
+    return neighbors
+
+def solve_8_puzzle(start_state):
+    """Solves the puzzle using A* Search."""
+    # Priority Queue elements format: (f_cost, g_cost, current_state, path_taken)
+    # Priority queue sorts by f_cost automatically
+    queue = [(get_misplaced_tiles(start_state), 0, start_state, [start_state])]
+    visited = {start_state: 0} # Keeps track of the minimum g_cost to reach a state
+    
+    while queue:
+        f, g, current, path = heapq.heappop(queue)
+        
+        # If goal is reached, return the complete sequence of moves
+        if current == GOAL:
+            return path
+            
+        for neighbor in get_neighbors(current):
+            new_g = g + 1
+            # If we found a shorter path to this neighbor, or haven't seen it yet
+            if neighbor not in visited or new_g < visited[neighbor]:
+                visited[neighbor] = new_g
+                h = get_misplaced_tiles(neighbor)
+                heapq.heappush(queue, (new_g + h, new_g, neighbor, path + [neighbor]))
+                
+    return None
+
+def print_board(state):
+    """Prints the 1D tuple beautifully as a 3x3 grid layout."""
+    for i in range(0, 9, 3):
+        # Replace 0 with a blank space for better visibility
+        row = [str(x) if x != 0 else "_" for x in state[i:i+3]]
+        print(" ".join(row))
+    print()
+
+# --- Execution ---
+if __name__ == "__main__":
+    # 0 is the empty tile. This puzzle is solvable in about 4 steps.
+    start = (1, 2, 3, 4, 0, 6, 7, 5, 8) 
+    
+    print("Initial Board Position:")
+    print_board(start)
+    
+    steps = solve_8_puzzle(start)
+    
+    if steps:
+        print(f"✨ Solved! Found optimal solution in {len(steps) - 1} moves.\n")
+        for idx, step in enumerate(steps):
+            print(f"Step {idx}:")
+            print_board(step)
+    else:
+        print("This specific puzzle state is unsolvable.")
+
+
+OUTPUT:
+Initial Board Position:
+1 2 3
+4 _ 6
+7 5 8
+
+✨ Solved! Found optimal solution in 2 moves.
+
+Step 0:
+1 2 3
+4 _ 6
+7 5 8
+
+Step 1:
+1 2 3
+4 5 6
+7 _ 8
+
+Step 2:
+1 2 3
+4 5 6
+7 8 _
