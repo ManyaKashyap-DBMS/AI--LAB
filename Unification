@@ -1,0 +1,167 @@
+def is_variable(x):
+    """Variables are represented as lowercase strings (e.g., 'x', 'y')."""
+    return isinstance(x, str) and x.islower()
+
+
+def is_constant(x):
+    """Constants start with an uppercase letter (e.g., 'Apple', 'Riya', 'John')."""
+    return isinstance(x, str) and not x.islower()
+
+
+def get_predicate(expr):
+    """Extracts the predicate or function symbol from an expression."""
+    return expr[0]
+
+
+def get_args(expr):
+    """Extracts the arguments from an expression."""
+    return expr[1:]
+
+
+def occurs_check(var, x):
+    """Checks if a variable occurs in expression x to prevent infinite loops."""
+    if var == x:
+        return True
+    elif isinstance(x, list):
+        return any(occurs_check(var, arg) for arg in x)
+    return False
+
+
+def apply_substitution_to_term(subst, term):
+    """Applies a substitution dictionary to a term or expression."""
+    if is_variable(term) and term in subst:
+        return apply_substitution_to_term(subst, subst[term])
+    elif isinstance(term, list):
+        return [apply_substitution_to_term(subst, t) for t in term]
+    return term
+
+
+def unify(psi1, psi2):
+    """
+    Unification Algorithm for First-Order Logic.
+    Expressions are represented as lists: ['Predicate', arg1, arg2, ...]
+    Variables are lowercase strings, Constants/Predicates start with uppercase.
+    """
+    # Step 1: If psi1 or psi2 is a variable or constant
+    if not isinstance(psi1, list) or not isinstance(psi2, list):
+        if psi1 == psi2:
+            return {}  # NIL (identical)
+        elif is_variable(psi1):
+            if occurs_check(psi1, psi2):
+                return "FAILURE"
+            return {psi1: psi2}
+        elif is_variable(psi2):
+            if occurs_check(psi2, psi1):
+                return "FAILURE"
+            return {psi2: psi1}
+        else:
+            return "FAILURE"
+
+    # Step 2: If the initial Predicate/Function symbol in psi1 and psi2 are not the same
+    if get_predicate(psi1) != get_predicate(psi2):
+        return "FAILURE"
+
+    # Step 3: If psi1 and psi2 have a different number of arguments
+    args1 = get_args(psi1)
+    args2 = get_args(psi2)
+    if len(args1) != len(args2):
+        return "FAILURE"
+
+    # Step 4: Set Substitution set (SUBST) to NIL
+    subst = {}
+    l1 = list(args1)
+    l2 = list(args2)
+
+    # Step 5: For i = 1 to the number of elements in psi1
+    for i in range(len(l1)):
+        # a) Call Unify function with the ith element
+        s = unify(l1[i], l2[i])
+
+        # b) If S = failure then return Failure
+        if s == "FAILURE":
+            return "FAILURE"
+
+        # c) If S != NIL then apply substitutions
+        if s != {}:
+            # Apply S to the remainder of both l1 and l2
+            l1 = [apply_substitution_to_term(s, arg) for arg in l1]
+            l2 = [apply_substitution_to_term(s, arg) for arg in l2]
+
+            # SUBST = APPEND(S, SUBST)
+            new_subst = {k: apply_substitution_to_term(s, v) for k, v in subst.items()}
+            new_subst.update(s)
+            subst = new_subst
+
+    # Step 6: Return SUBST
+    return subst
+
+
+def run_test_case(tc_id, expr1, expr2, description):
+    """Helper function to run and print a unification test case cleanly."""
+    print("=" * 60)
+    print(f"RUNNING {tc_id}: {description}")
+    print(f"Expression 1: {expr1}")
+    print(f"Expression 2: {expr2}")
+    result = unify(expr1, expr2)
+    print(f"Result (MGU): {result}\n")
+
+
+# --- Execute 4 Test Cases ---
+if __name__ == "__main__":
+    # TC1: Basic variable-to-constant unification
+    run_test_case(
+        "TC1",
+        ["Knows", "John", "x"],
+        ["Knows", "y", "Riya"],
+        "Basic variable and constant substitution"
+    )
+
+    # TC2: Nested function unification
+    run_test_case(
+        "TC2",
+        ["Knows", "John", ["Mother", "x"]],
+        ["Knows", "y", "z"],
+        "Unifying a variable with a nested function"
+    )
+
+    # TC3: Predicate mismatch (Failure)
+    run_test_case(
+        "TC3",
+        ["Likes", "John", "Apple"],
+        ["Hates", "John", "Apple"],
+        "Predicate symbol mismatch"
+    )
+
+    # TC4: Occurs-check failure (Infinite loop prevention)
+    run_test_case(
+        "TC4",
+        ["Knows", "x", ["Father", "x"]],
+        ["Knows", "y", "y"],
+        "Occurs-check failure (variable inside function)"
+    )
+
+OUTPUT:
+
+============================================================
+RUNNING TC1: Basic variable and constant substitution
+Expression 1: ['Knows', 'John', 'x']
+Expression 2: ['Knows', 'y', 'Riya']
+Result (MGU): {'y': 'John', 'x': 'Riya'}
+
+============================================================
+RUNNING TC2: Unifying a variable with a nested function
+Expression 1: ['Knows', 'John', ['Mother', 'x']]
+Expression 2: ['Knows', 'y', 'z']
+Result (MGU): {'y': 'John', 'z': ['Mother', 'x']}
+
+============================================================
+RUNNING TC3: Predicate symbol mismatch
+Expression 1: ['Likes', 'John', 'Apple']
+Expression 2: ['Hates', 'John', 'Apple']
+Result (MGU): FAILURE
+
+============================================================
+RUNNING TC4: Occurs-check failure (variable inside function)
+Expression 1: ['Knows', 'x', ['Father', 'x']]
+Expression 2: ['Knows', 'y', 'y']
+Result (MGU): FAILURE
